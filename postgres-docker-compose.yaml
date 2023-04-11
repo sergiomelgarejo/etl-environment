@@ -1,0 +1,75 @@
+version: "3.8"
+# Optional Jupyter Notebook service
+services:
+  jupyter_notebook:
+    image: "jupyter/minimal-notebook"
+    build:
+      context: .
+      dockerfile: jupyter-dockerfile
+    container_name: ${CONTAINER_NAME:-jupyter_notebook}
+    environment:
+      JUPYTER_ENABLE_LAB: "yes"
+    user: 0:0
+    env_file:
+      - .env
+    ports:
+      - "8888:8888"
+    volumes:
+      - jupyter_volume:/home/jovyan/work
+    depends_on:
+      - database
+    links:
+      - database
+    networks:
+      - etl_network
+
+  database:
+    image: "postgres:13"
+    container_name: ${CONTAINER_NAME:-database}
+    ports:
+      - "5433:5432"
+    expose:
+      - "5432"
+    environment:
+      POSTGRES_DB: "${_POSTGRES_DB}"
+      POSTGRES_HOST: "${_POSTGRES_HOST}"
+      POSTGRES_PASSWORD: "${_POSTGRES_PASSWORD}"
+      POSTGRES_PORT: "${_POSTGRES_PORT}"
+      POSTGRES_USER: "${_POSTGRES_USER}"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "pg_isready",
+          "-U",
+          "${_POSTGRES_USER}",
+          "-d",
+          "${_POSTGRES_DB}"
+        ]
+      interval: 5s
+      retries: 5
+    restart: always
+    volumes:
+      - pg_volume:/var/lib/postgresql/data/
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - etl_network
+
+volumes:
+  pg_volume:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind 
+      device: ${PG_DATA}
+
+  jupyter_volume:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${JUPYTER_NOTEBOOKS}
+
+# Create a custom network for bridging the containers
+networks:
+  etl_network: null

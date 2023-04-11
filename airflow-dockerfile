@@ -1,0 +1,11 @@
+FROM apache/airflow:2.3.0
+
+USER root
+
+RUN apt-get update \
+    && apt-get -y install libpq-dev gcc
+    
+USER airflow
+
+COPY --chown=airflow:root requirements.txt /usr/local/airflow/requirements.txt
+RUN pip install --user --no-cache-dir -r /usr/local/airflow/requirements.txt
